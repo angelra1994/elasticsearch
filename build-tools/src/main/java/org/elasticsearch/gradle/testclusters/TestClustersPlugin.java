@@ -114,7 +114,9 @@ public class TestClustersPlugin implements Plugin<Project> {
 
         JavaToolchainService toolChainService = project.getExtensions().getByType(JavaToolchainService.class);
         Provider<JavaLauncher> fallbackJdk17Launcher = toolChainService.launcherFor(spec -> {
-            spec.getVendor().set(JvmVendorSpec.ADOPTIUM);
+            // Local build deviation: use the installed Oracle JDK 17 instead of an Adoptium one.
+            // spec.getVendor().set(JvmVendorSpec.ADOPTIUM);
+            spec.getVendor().set(JvmVendorSpec.ORACLE);
             spec.getLanguageVersion().set(JavaLanguageVersion.of(17));
         });
 

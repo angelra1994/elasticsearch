@@ -57,6 +57,17 @@ public class MrjarPlugin implements Plugin<Project> {
     private static final Pattern MRJAR_SOURCESET_PATTERN = Pattern.compile("main(\\d{2})");
     private static final String MRJAR_IDEA_ENABLED = "org.gradle.mrjar.idea.enabled";
 
+    /**
+     * Local build deviation: no JDK 22 is installed here and toolchain auto-download is disabled, so version-specific
+     * source sets are compiled by the newest installed JDK. Their {@code --release} target is left untouched, so the
+     * classes still land in {@code META-INF/versions/<sourceSetVersion>}.
+     */
+    private static final int LOCAL_TOOLCHAIN_JDK = 25;
+
+    private static int localToolchainVersion(int javaVersion) {
+        return Math.max(javaVersion, LOCAL_TOOLCHAIN_JDK);
+    }
+
     private final JavaToolchainService javaToolchains;
 
     @Inject
@@ -81,10 +92,20 @@ public class MrjarPlugin implements Plugin<Project> {
             List<Integer> mainVersions = findSourceVersions(project, minJavaVersion);
             List<String> mainSourceSets = new ArrayList<>();
             mainSourceSets.add(SourceSet.MAIN_SOURCE_SET_NAME);
-            configurePreviewFeatures(project, javaExtension.getSourceSets().getByName(SourceSet.MAIN_SOURCE_SET_NAME), minJavaVersion);
+            configurePreviewFeatures(
+                project,
+                javaExtension.getSourceSets().getByName(SourceSet.MAIN_SOURCE_SET_NAME),
+                minJavaVersion,
+                true
+            );
             List<String> testSourceSets = new ArrayList<>(mainSourceSets);
             testSourceSets.add(SourceSet.TEST_SOURCE_SET_NAME);
-            configurePreviewFeatures(project, javaExtension.getSourceSets().getByName(SourceSet.TEST_SOURCE_SET_NAME), minJavaVersion);
+            configurePreviewFeatures(
+                project,
+                javaExtension.getSourceSets().getByName(SourceSet.TEST_SOURCE_SET_NAME),
+                minJavaVersion,
+                true
+            );
             for (int javaVersion : mainVersions) {
                 String mainSourceSetName = SourceSet.MAIN_SOURCE_SET_NAME + javaVersion;
                 SourceSet mainSourceSet = addSourceSet(project, javaExtension, mainSourceSetName, mainSourceSets, javaVersion, true);
@@ -133,7 +154,11 @@ public class MrjarPlugin implements Plugin<Project> {
 
         project.getTasks().withType(JavaCompile.class).named(sourceSet.getCompileJavaTaskName()).configure(compileTask -> {
             compileTask.getJavaCompiler()
-                .set(javaToolchains.compilerFor(spec -> { spec.getLanguageVersion().set(JavaLanguageVersion.of(javaVersion)); }));
+                .set(
+                    javaToolchains.compilerFor(
+                        spec -> { spec.getLanguageVersion().set(JavaLanguageVersion.of(localToolchainVersion(javaVersion))); }
+                    )
+                );
             compileTask.setSourceCompatibility(Integer.toString(javaVersion));
             CompileOptions compileOptions = compileTask.getOptions();
             compileOptions.getRelease().set(javaVersion);
@@ -141,11 +166,12 @@ public class MrjarPlugin implements Plugin<Project> {
         if (isMainSourceSet) {
             project.getTasks().register(sourceSet.getJavadocTaskName(), Javadoc.class, javadocTask -> {
                 javadocTask.getJavadocTool().set(javaToolchains.javadocToolFor(spec -> {
-                    spec.getLanguageVersion().set(JavaLanguageVersion.of(javaVersion));
+                    spec.getLanguageVersion().set(JavaLanguageVersion.of(localToolchainVersion(javaVersion)));
                 }));
             });
         }
-        configurePreviewFeatures(project, sourceSet, javaVersion);
+        // javac only accepts --enable-preview when it compiles for its own release
+        configurePreviewFeatures(project, sourceSet, javaVersion, localToolchainVersion(javaVersion) == javaVersion);
 
         // Since we configure MRJAR sourcesets to allow preview apis, class signatures for those
         // apis are not known by forbidden apis, so we must ignore all missing classes. We could, in theory,
@@ -168,17 +194,21 @@ public class MrjarPlugin implements Plugin<Project> {
         project.getArtifacts().add("java" + javaVersion, jarTask);
     }
 
-    private void configurePreviewFeatures(Project project, SourceSet sourceSet, int javaVersion) {
+    private void configurePreviewFeatures(Project project, SourceSet sourceSet, int javaVersion, boolean allowPreview) {
         project.getTasks().withType(JavaCompile.class).named(sourceSet.getCompileJavaTaskName()).configure(compileTask -> {
             CompileOptions compileOptions = compileTask.getOptions();
-            compileOptions.getCompilerArgs().add("--enable-preview");
-            compileOptions.getCompilerArgs().add("-Xlint:-preview");
+            if (allowPreview) {
+                compileOptions.getCompilerArgs().add("--enable-preview");
+                compileOptions.getCompilerArgs().add("-Xlint:-preview");
+            }
 
             compileTask.doLast(t -> { stripPreviewFromFiles(compileTask.getDestinationDirectory().getAsFile().get().toPath()); });
         });
         project.getTasks().withType(Javadoc.class).named(name -> name.equals(sourceSet.getJavadocTaskName())).configureEach(javadocTask -> {
             CoreJavadocOptions options = (CoreJavadocOptions) javadocTask.getOptions();
-            options.addBooleanOption("-enable-preview", true);
+            if (allowPreview) {
+                options.addBooleanOption("-enable-preview", true);
+            }
             options.addStringOption("-release", String.valueOf(javaVersion));
         });
     }
@@ -218,7 +248,11 @@ public class MrjarPlugin implements Plugin<Project> {
                 });
             } else {
                 testTask.getJavaLauncher()
-                    .set(javaToolchains.launcherFor(spec -> spec.getLanguageVersion().set(JavaLanguageVersion.of(javaVersion))));
+                    .set(
+                        javaToolchains.launcherFor(
+                            spec -> spec.getLanguageVersion().set(JavaLanguageVersion.of(localToolchainVersion(javaVersion)))
+                        )
+                    );
             }
         });
 
