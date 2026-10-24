@@ -57,6 +57,20 @@ public class MrjarPlugin implements Plugin<Project> {
     private static final Pattern MRJAR_SOURCESET_PATTERN = Pattern.compile("main(\\d{2})");
     private static final String MRJAR_IDEA_ENABLED = "org.gradle.mrjar.idea.enabled";
 
+    /**
+     * Local build deviation: a version-specific source set is only built when a toolchain for exactly that Java
+     * version is installed. Skipping keeps the jar usable on the missing release through the lower layers, exactly
+     * like the IntelliJ-sync path below; installing the JDK makes the layer come back with no further change.
+     */
+    private boolean hasToolchainFor(int javaVersion) {
+        try {
+            return javaToolchains.compilerFor(spec -> spec.getLanguageVersion().set(JavaLanguageVersion.of(javaVersion))).isPresent();
+        } catch (RuntimeException e) {
+            // Gradle throws instead of handing back an empty provider when no toolchain matches and auto-provisioning is off.
+            return false;
+        }
+    }
+
     private final JavaToolchainService javaToolchains;
 
     @Inject
@@ -78,7 +92,17 @@ public class MrjarPlugin implements Plugin<Project> {
         // Avoids an IntelliJ bug:
         // https://youtrack.jetbrains.com/issue/IDEA-285640/Compiler-Options-Settings-language-level-is-set-incorrectly-with-JDK-19ea
         if (isIdeaSync == false || ideaSourceSetsEnabled) {
-            List<Integer> mainVersions = findSourceVersions(project, minJavaVersion);
+            List<Integer> mainVersions = new ArrayList<>();
+            for (int javaVersion : findSourceVersions(project, minJavaVersion)) {
+                if (hasToolchainFor(javaVersion) == false) {
+                    project.getLogger().warn(
+                        "Skipping multi-release source set 'main" + javaVersion + "' in " + project.getPath()
+                            + " because no Java " + javaVersion + " toolchain is installed"
+                    );
+                    continue;
+                }
+                mainVersions.add(javaVersion);
+            }
             List<String> mainSourceSets = new ArrayList<>();
             mainSourceSets.add(SourceSet.MAIN_SOURCE_SET_NAME);
             configurePreviewFeatures(project, javaExtension.getSourceSets().getByName(SourceSet.MAIN_SOURCE_SET_NAME), minJavaVersion);

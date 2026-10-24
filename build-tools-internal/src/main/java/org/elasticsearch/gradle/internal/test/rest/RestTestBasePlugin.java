@@ -89,7 +89,9 @@ public class RestTestBasePlugin implements Plugin<Project> {
     private static final String TESTS_FEATURES_METADATA_PATH = "tests.features.metadata.path";
     private static final String MINIMUM_WIRE_COMPATIBLE_VERSION_SYSPROP = "tests.minimum.wire.compatible";
     public static final Action<JavaToolchainSpec> JAVA_TOOLCHAIN_JDK_ADOPTIUM_SPEC_ACTION = spec -> {
-        spec.getVendor().set(JvmVendorSpec.ADOPTIUM);
+        // Local build deviation: use the installed Oracle JDK 17 instead of an Adoptium one.
+        // spec.getVendor().set(JvmVendorSpec.ADOPTIUM);
+        spec.getVendor().set(JvmVendorSpec.ORACLE);
         spec.getLanguageVersion().set(JavaLanguageVersion.of(17));
     };
 

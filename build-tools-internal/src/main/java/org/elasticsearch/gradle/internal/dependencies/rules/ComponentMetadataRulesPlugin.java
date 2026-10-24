@@ -9,7 +9,9 @@
 
 package org.elasticsearch.gradle.internal.dependencies.rules;
 
+import org.gradle.api.Action;
 import org.gradle.api.Plugin;
+import org.gradle.api.artifacts.ComponentMetadataDetails;
 import org.gradle.api.artifacts.dsl.ComponentMetadataHandler;
 import org.gradle.api.initialization.Settings;
 
@@ -189,9 +191,16 @@ public class ComponentMetadataRulesPlugin implements Plugin<Settings> {
         components.withModule("net.shibboleth.utilities:java-support", ExcludeAllTransitivesRule.class);
 
         // Apache Arrow dependencies
-        components.withModule("org.apache.arrow:arrow-format", ExcludeAllTransitivesRule.class);
-        components.withModule("org.apache.arrow:arrow-memory-core", ExcludeAllTransitivesRule.class);
-        components.withModule("org.apache.arrow:arrow-vector", ExcludeAllTransitivesRule.class);
+        // Local deviation: registering these modules through the cacheable rule class
+        // (ExcludeAllTransitivesRule) makes resolving ':libs:arrow:moduleCompileClasspath' fail with
+        // "Unexpected state for resolution: Unknown" under Gradle 9.7.1. The same exclusion applied as a
+        // non-cacheable action yields an identical dependency graph and resolves correctly.
+        Action<ComponentMetadataDetails> excludeAllTransitives = details -> details.allVariants(
+            variant -> variant.withDependencies(dependencies -> dependencies.clear())
+        );
+        components.withModule("org.apache.arrow:arrow-format", excludeAllTransitives);
+        components.withModule("org.apache.arrow:arrow-memory-core", excludeAllTransitives);
+        components.withModule("org.apache.arrow:arrow-vector", excludeAllTransitives);
 
         // Apache Commons dependencies
         components.withModule("org.apache.commons:commons-text", ExcludeAllTransitivesRule.class);

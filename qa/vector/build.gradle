@@ -255,7 +255,7 @@ tasks.register("checkVec", JavaExec) {
     javaLauncher = javaToolchains.launcherFor {
       languageVersion = JavaLanguageVersion.of(VersionProperties.bundledJdkMajorVersion)
       vendor = VersionProperties.bundledJdkVendor == "openjdk" ?
-        JvmVendorSpec.ORACLE :
+        JvmVendorSpec.AZUL : // local build deviation: this machine's bundled-version JDK is Azul Zulu, not Oracle
         JvmVendorSpec.matching(VersionProperties.bundledJdkVendor)
     }
   }

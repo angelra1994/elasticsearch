@@ -218,6 +218,12 @@ public class GlobalBuildInfoPlugin implements Plugin<Project> {
             .gradleProperty(BRANCHES_FILE_LOCATION_PROPERTY)
             .getOrElse(DEFAULT_BRANCHES_FILE_URL);
         String branchesFileLocation = configuredBranchesFileLocation;
+        // Local build deviation: a relative file location is otherwise resolved against the Gradle daemon's working
+        // directory, so anchor it to the workspace root like the offline fallback below does. This lets
+        // gradle.properties point at the repo-root branches.json without hardcoding an absolute path.
+        if (isHttpLocation(branchesFileLocation) == false && new File(branchesFileLocation).isAbsolute() == false) {
+            branchesFileLocation = new File(Util.locateElasticsearchWorkspace(project.getGradle()), branchesFileLocation).getAbsolutePath();
+        }
         if (project.getGradle().getStartParameter().isOffline() && isHttpLocation(configuredBranchesFileLocation)) {
             File localBranchesFile = new File(Util.locateElasticsearchWorkspace(project.getGradle()), "branches.json");
             if (localBranchesFile.exists()) {

@@ -31,7 +31,7 @@ configure(allprojects) {
       test.javaLauncher = project.extensions.getByType(JavaToolchainService).launcherFor {
         languageVersion = JavaLanguageVersion.of(VersionProperties.bundledJdkMajorVersion)
         vendor = VersionProperties.bundledJdkVendor == "openjdk" ?
-                JvmVendorSpec.ORACLE :
+                JvmVendorSpec.AZUL : // local build deviation: this machine's bundled-version JDK is Azul Zulu, not Oracle
                 JvmVendorSpec.matching(VersionProperties.bundledJdkVendor)
       }
     }
@@ -44,7 +44,7 @@ configure(allprojects) {
         def launcher = project.extensions.getByType(JavaToolchainService).launcherFor {
           languageVersion = JavaLanguageVersion.of(VersionProperties.bundledJdkMajorVersion)
           vendor = VersionProperties.bundledJdkVendor == "openjdk" ?
-                  JvmVendorSpec.ORACLE :
+                  JvmVendorSpec.AZUL : // local build deviation: this machine's bundled-version JDK is Azul Zulu, not Oracle
                   JvmVendorSpec.matching(VersionProperties.bundledJdkVendor)
         }
         testClustersPlugin.setRuntimeJava(launcher.map { it.metadata.installationPath.asFile })

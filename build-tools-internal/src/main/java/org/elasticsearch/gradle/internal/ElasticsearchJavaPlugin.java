@@ -153,7 +153,9 @@ public class ElasticsearchJavaPlugin implements Plugin<Project> {
 
             javadoc.getJavadocTool().set(javaToolchains.javadocToolFor(spec -> {
                 spec.getLanguageVersion().set(JavaLanguageVersion.of(buildParams.getMinimumRuntimeVersion().getMajorVersion()));
-                spec.getVendor().set(JvmVendorSpec.ORACLE);
+                // Local build deviation: this machine has Azul Zulu for the minimum runtime JDK, no Oracle one.
+                // spec.getVendor().set(JvmVendorSpec.ORACLE);
+                spec.getVendor().set(JvmVendorSpec.AZUL);
             }));
         });
 

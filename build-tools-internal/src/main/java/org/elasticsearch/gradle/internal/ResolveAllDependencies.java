@@ -80,11 +80,13 @@ public abstract class ResolveAllDependencies extends DefaultTask {
 
     private void resolveDefaultJavaToolChain() {
         getJavaToolchainService().launcherFor(javaToolchainSpec -> {
-            String bundledVendor = VersionProperties.getBundledJdkVendor();
+            // String bundledVendor = VersionProperties.getBundledJdkVendor();
             String bundledJdkMajorVersion = VersionProperties.getBundledJdkMajorVersion();
             javaToolchainSpec.getLanguageVersion().set(JavaLanguageVersion.of(bundledJdkMajorVersion));
-            javaToolchainSpec.getVendor()
-                .set(bundledVendor.equals("openjdk") ? JvmVendorSpec.ORACLE : JvmVendorSpec.matching(bundledVendor));
+            //  javaToolchainSpec.getVendor()
+            //      .set(bundledVendor.equals("openjdk") ? JvmVendorSpec.ORACLE : JvmVendorSpec.matching(bundledVendor));
+            // Local build deviation: this machine has Azul Zulu for the bundled JDK version, no Oracle one.
+            javaToolchainSpec.getVendor().set(JvmVendorSpec.AZUL);
         }).get();
     }
 
